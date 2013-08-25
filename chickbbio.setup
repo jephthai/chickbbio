@@ -1,0 +1,6 @@
+(compile -s -O3 "chickbbio.scm" "i2c.c" -j chickbbio)
+(compile -s -O3 "chickbbio.import.scm")
+(install-extension
+  'chickbbio
+  '("chickbbio.so" "chickbbio.import.so")
+  '((version "0.1")))
