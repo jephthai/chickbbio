@@ -1,5 +1,5 @@
-;; This is a library for controlling the GPIO features on the 
-;; beaglebone black single board computer.
+;; This is a library for controlling the GPIO, ADC, and I2C features
+;; on the beaglebone black single board computer.
 ;;
 ;; Author:  Josh Stone
 ;; Date:    2013-08-24
@@ -13,15 +13,20 @@
 		   write-pin
 		   openI2C
 		   writeByte
+                   init-adc
+                   read-adc
 		   writeList)
 
 	(import chicken scheme)
 	(use srfi-4)
 	(use srfi-18)
+        (use directory-utils)
 	(require-extension bind)
 
 	(bind "int openI2C(char *, int);")
 	(bind "void writeBuf(int, unsigned char*, int);")
+
+        (define *adc-dir* #f)
 
 	(define (lookup-gpio q)
 	  (let ((r (assq q *gpios*)))
@@ -62,6 +67,26 @@
 	
 	(define (writeList bus xs)
 	  (writeBuf bus (list->u8vector xs) (length xs)))
+
+        (define (init-adc)
+          (cond
+           [*adc-dir* #t]
+           [(not (file-exists/directory? "ocp.2" "/sys/devices")) #f]
+           [(not (file-exists/directory? "helper.14" "/sys/devices/ocp.2")) #f]
+           [#t
+              (set! *adc-dir* "/sys/devices/ocp.2/helper.14")
+              #t]))
+
+        (define (read-adc pin)
+          (cond
+           [(not *adc-dir*) #f]
+           [#t
+            (with-input-from-file (format "/sys/devices/ocp.2/helper.14/~a" pin)
+              (lambda ()
+                (let ((value (read)))
+                  (cond
+                   [(not (number? value)) #f]
+                   [#t                 value]))))]))
 
 	(define *gpios*
 	  '((p9-01 #f)    (p8-01 #f)
