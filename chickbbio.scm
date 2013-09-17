@@ -20,6 +20,8 @@
 	(import chicken scheme)
 	(use srfi-4)
 	(use srfi-18)
+        (use srfi-13)
+        (use extras)
         (use directory-utils)
 	(require-extension bind)
 
@@ -68,7 +70,19 @@
 	(define (writeList bus xs)
 	  (writeBuf bus (list->u8vector xs) (length xs)))
 
+        (define (check-iio-slot)
+          (let [(lines (read-lines "/sys/devices/bone_capemgr.8/slots"))
+                (fn (lambda (a b) (or a b)))
+                (gn (lambda (x) (string-contains x "cape-bone-iio")))]
+            (if (foldl fn #f (map gn lines))
+                #t
+                (with-output-to-file "/sys/devices/bone_capemgr.8/slots"
+                  (lambda ()
+                    (print "cape-bone-iio")
+                    #t)))))
+
         (define (init-adc)
+          (check-iio-slot)
           (cond
            [*adc-dir* #t]
            [(not (file-exists/directory? "ocp.2" "/sys/devices")) #f]

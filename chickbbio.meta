@@ -1,6 +1,6 @@
 ((license "BSD")
  (category ffi)
  (author "Josh Stone")
- (needs bind directory-utils)
- (depends bind directory-utils)
+ (needs bind directory-utils srfi-13)
+ (depends bind directory-utils srfi-13)
  (synopsis "I/O functionality for BeagleBone Black"))
