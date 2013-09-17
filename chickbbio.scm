@@ -25,14 +25,39 @@
         (use directory-utils)
 	(require-extension bind)
 
+
+        ; These are two functions written in the accompanying
+        ; C file (i2c.c).  Chicken scheme does not give us
+        ; IOCTL functions that I can find, so this seemed like
+        ; an easy way to get the I2C stuff to work.
+
 	(bind "int openI2C(char *, int);")
 	(bind "void writeBuf(int, unsigned char*, int);")
 
+        
+        ; We need to make sure that the beaglebone black is 
+        ; configured for ADC operation.  This global variable
+        ; will be used to keep track of whether or not we have
+        ; confirmed it yet.
+
         (define *adc-dir* #f)
+
+        
+        ; A lookup table is used to correlate IO pin numbers with
+        ; header locations.  You can use atoms of the form 'pX-YZ
+        ; where X is one of the headers (representing either P8 or
+        ; P9) and YZ represent the number of the socket in the
+        ; header.  The result will be an integer (coincidentally
+        ; the IO pin number recognized by the kernel).
 
 	(define (lookup-gpio q)
 	  (let ((r (assq q *gpios*)))
 	    (if r (cadr r) r)))
+
+
+        ; Opens an I/O pin in the given mode.  This mode should be
+        ; the atom 'in or 'out, depending on how you want to use
+        ; it.  The result will be #f if there is a failure.
 
 	(define (open-pin pin mode)
 	  (with-output-to-file "/sys/class/gpio/export"
@@ -44,9 +69,20 @@
 	       [(equal? mode 'out) (print "out") #t]
 	       [#t #f]))))
 
+        
+        ; When we are done using an I/O pin, we can instruct the
+        ; kernel to configure it to be no longer available using
+        ; this function.  
+
 	(define (close-pin pin)
 	  (with-output-to-file "/sys/class/gpio/unexport"
 	    (lambda () (print pin))))
+
+        
+        ; Assuming that we have exported a pin for input using the
+        ; open-pin function above, this function will return the
+        ; current value of the pin (either high (1) or low (0)). 
+        ; If an error is encountered, this will be #f.
 
 	(define (read-pin pin)
 	  (with-input-from-file (format "/sys/class/gpio/gpio~a/value" pin)
@@ -56,6 +92,13 @@
 		 [(not (number? value))    #f]
 		 [#t                    value])))))
 
+
+        ; If we have configured a pin for output mode using the
+        ; open-pin function above, this function will write out
+        ; the indicated value.  The values should be indicated 
+        ; with the atoms 'high and 'low.  Any errors will result
+        ; in a return value of #f.
+
 	(define (write-pin pin level)
 	  (with-output-to-file (format "/sys/class/gpio/gpio~a/value" pin)
 	    (lambda ()
@@ -64,11 +107,30 @@
 	       [(eq? level 'low)  (print 0)  #f]
 	       [#t #f]))))
 
+
+        ; Given a reference to an open I2C bus connection, we can
+        ; write the single byte x out to the device.  Behavior is
+        ; not defined if the bus has not been properly opened
+        ; with the openI2C function.
+
 	(define (writeByte bus x)
 	  (writeBuf bus (list->u8vector (list x)) 1))
 	
+        
+        ; Write a list of bytes out as one communication with an
+        ; open I2C bus connection.  This assumes that the device
+        ; has been properly opened with the openI2C function.  
+        ; Behavior is not defined when this is not the case.
+
 	(define (writeList bus xs)
 	  (writeBuf bus (list->u8vector xs) (length xs)))
+
+
+        ; This is an internal function that validates that the
+        ; beaglebone is configured with the iio interface, which
+        ; will indicate that the ADC is accessible.  If it's not
+        ; loaded, then this will request that the kernel load
+        ; this interface.
 
         (define (check-iio-slot)
           (let [(lines (read-lines "/sys/devices/bone_capemgr.8/slots"))
@@ -81,6 +143,13 @@
                     (print "cape-bone-iio")
                     #t)))))
 
+
+        ; We need to make sure that the BeagleBone Black is configured
+        ; to use the ADC.  Run this function at the beginning of your 
+        ; program.  Any calls to the ADC reading function below will
+        ; fail with #f until this function is run.  If there is a 
+        ; failure to configure ADC operation, this will return #f.
+
         (define (init-adc)
           (check-iio-slot)
           (cond
@@ -90,6 +159,14 @@
            [#t
               (set! *adc-dir* "/sys/devices/ocp.2/helper.14")
               #t]))
+
+
+        ; This function will ensure that the ADC interface has been
+        ; initialized.  Following this check, it will return a value
+        ; in the range [0,4095] for the pin supplied.  The argument
+        ; should be a string of the form "AINX" where X refers to the
+        ; analog input pin number.  E.g., "AIN6".  Errors will 
+        ; return a #f.
 
         (define (read-adc pin)
           (cond
