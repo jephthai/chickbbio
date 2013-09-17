@@ -23,31 +23,32 @@ If you download the git repo, run the following from within the directory.
 Usage Example
 =============
 
-    ;; Blinks LED on P9-41
-    ;;
-    
-    ; If you've installed the library, this should work
-    (use chickbbio)
+```scheme
+;; Blinks LED on P9-41
+;;
 
-    ; For sleeping (not necessary strictly speaking for I/O)
-    (use srfi-18)
-    
-    ; Symbols of the form "pX-YY" refer to the physical pins
-    ; in the expansion headers on the BBB.  The library
-    ; maps this to the "actual" GPIO pin numbers on the 
-    ; CPU for you.
-    (define pin (lookup-gpio 'p9-41))
-    
-    (define (loop delay)
-      ; Symbols 'high and 'low for output levels
-      (write-pin pin 'high)
-      (thread-sleep! (/ delay 2))
-      (write-pin pin 'low)
-      (thread-sleep! (/ delay 2))
-      (loop delay))
-    
-    ; Exports the pin in /sys as an output
-    (open-pin pin 'out)
-    (loop 0.25)
-    (close-pin pin)
+; If you've installed the library, this should work
+(use chickbbio)
 
+; For sleeping (not necessary strictly speaking for I/O)
+(use srfi-18)
+
+; Symbols of the form "pX-YY" refer to the physical pins
+; in the expansion headers on the BBB.  The library
+; maps this to the "actual" GPIO pin numbers on the 
+; CPU for you.
+(define pin (lookup-gpio 'p9-41))
+
+(define (loop delay)
+  ; Symbols 'high and 'low for output levels
+  (write-pin pin 'high)
+  (thread-sleep! (/ delay 2))
+  (write-pin pin 'low)
+  (thread-sleep! (/ delay 2))
+  (loop delay))
+
+; Exports the pin in /sys as an output
+(open-pin pin 'out)
+(loop 0.25)
+(close-pin pin)
+```
